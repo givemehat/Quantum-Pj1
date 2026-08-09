@@ -25,21 +25,21 @@ from cryptography.hazmat.primitives import hashes, hmac
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF, HKDFExpand
 
-
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-AES_KEY_BYTES: int = 32          # AES-256
-GCM_NONCE_BYTES: int = 12        # 96-bit nonce (NIST recommended)
-GCM_TAG_BYTES: int = 16          # 128-bit authentication tag
-HKDF_HASH = hashes.SHA256        # Hash function for HKDF
-REPLAY_WINDOW_SIZE: int = 64     # Anti-replay window (bitmask, 64 slots)
-MAX_SEQ_GAP: int = 32            # Maximum acceptable sequence gap
+AES_KEY_BYTES: int = 32  # AES-256
+GCM_NONCE_BYTES: int = 12  # 96-bit nonce (NIST recommended)
+GCM_TAG_BYTES: int = 16  # 128-bit authentication tag
+HKDF_HASH = hashes.SHA256  # Hash function for HKDF
+REPLAY_WINDOW_SIZE: int = 64  # Anti-replay window (bitmask, 64 slots)
+MAX_SEQ_GAP: int = 32  # Maximum acceptable sequence gap
 
 
 # ---------------------------------------------------------------------------
 # Secure RNG helpers
 # ---------------------------------------------------------------------------
+
 
 def secure_random_bytes(n: int) -> bytes:
     """
@@ -65,6 +65,7 @@ def generate_nonce() -> bytes:
 # ---------------------------------------------------------------------------
 # HKDF Key Derivation
 # ---------------------------------------------------------------------------
+
 
 def hkdf_derive(
     ikm: bytes,
@@ -134,7 +135,9 @@ def hkdf_derive_session_key(
     """
     ikm = x25519_secret + kyber_shared
     # First derive a role-independent base key
-    base_key = hkdf_derive(ikm=ikm, length=AES_KEY_BYTES, salt=salt, info=b"HyPQ-Mess|base|v1")
+    base_key = hkdf_derive(
+        ikm=ikm, length=AES_KEY_BYTES, salt=salt, info=b"HyPQ-Mess|base|v1"
+    )
     # Then derive role-specific encryption key
     enc_info = f"HyPQ-Mess|enc|{role}|v1".encode()
     hkdf_expand = HKDFExpand(algorithm=HKDF_HASH(), length=AES_KEY_BYTES, info=enc_info)
@@ -161,7 +164,9 @@ def hkdf_derive_base_key(
         32-byte shared base key.
     """
     ikm = x25519_secret + kyber_shared
-    return hkdf_derive(ikm=ikm, length=AES_KEY_BYTES, salt=salt, info=b"HyPQ-Mess|base|v1")
+    return hkdf_derive(
+        ikm=ikm, length=AES_KEY_BYTES, salt=salt, info=b"HyPQ-Mess|base|v1"
+    )
 
 
 def hkdf_derive_mac_key(session_key: bytes, purpose: str = "confirm") -> bytes:
@@ -190,6 +195,7 @@ def hkdf_derive_mac_key(session_key: bytes, purpose: str = "confirm") -> bytes:
 # ---------------------------------------------------------------------------
 # HMAC for Key Confirmation
 # ---------------------------------------------------------------------------
+
 
 def compute_hmac(key: bytes, data: bytes) -> bytes:
     """
@@ -228,6 +234,7 @@ def verify_hmac(key: bytes, data: bytes, tag: bytes) -> bool:
 # AES-256-GCM Authenticated Encryption
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class EncryptedMessage:
     """
@@ -239,6 +246,7 @@ class EncryptedMessage:
         sequence   : Monotonically increasing message sequence number.
         timestamp  : Unix timestamp (microseconds) for replay detection.
     """
+
     nonce: bytes
     ciphertext: bytes
     sequence: int
@@ -270,13 +278,17 @@ class AESGCMEncryptor:
 
     def __init__(self, key: bytes) -> None:
         if len(key) != AES_KEY_BYTES:
-            raise ValueError(f"AES-256 requires exactly {AES_KEY_BYTES} bytes; got {len(key)}.")
+            raise ValueError(
+                f"AES-256 requires exactly {AES_KEY_BYTES} bytes; got {len(key)}."
+            )
         self._aesgcm: AESGCM = AESGCM(key)
         self._sequence: int = 0
         self._recv_seq: int = -1
         self._replay_window: int = 0  # 64-bit bitmask
 
-    def encrypt(self, plaintext: bytes, aad: Optional[bytes] = None) -> EncryptedMessage:
+    def encrypt(
+        self, plaintext: bytes, aad: Optional[bytes] = None
+    ) -> EncryptedMessage:
         """
         Encrypt plaintext with AES-256-GCM.
 
@@ -383,6 +395,7 @@ class AESGCMEncryptor:
 # ---------------------------------------------------------------------------
 # Custom Exceptions
 # ---------------------------------------------------------------------------
+
 
 class ReplayAttackError(Exception):
     """Raised when a replayed or out-of-window message is detected."""

@@ -35,20 +35,34 @@ from typing import Callable, Dict, List, Optional
 try:
     from rich.console import Console
     from rich.table import Table
+
     _HAS_RICH = True
 except ImportError:
     _HAS_RICH = False
+
     class Console:
-        def print(self, *args, **kwargs): print(*[str(a) for a in args])
-        def rule(self, *args, **kwargs): print("=" * 60)
+        def print(self, *args, **kwargs):
+            print(*[str(a) for a in args])
+
+        def rule(self, *args, **kwargs):
+            print("=" * 60)
+
     class Table:
-        def __init__(self, *args, **kwargs): self._rows = []; self._cols = []
-        def add_column(self, name, **kw): self._cols.append(name)
-        def add_row(self, *args): self._rows.append(args)
+        def __init__(self, *args, **kwargs):
+            self._rows = []
+            self._cols = []
+
+        def add_column(self, name, **kw):
+            self._cols.append(name)
+
+        def add_row(self, *args):
+            self._rows.append(args)
+
         def __repr__(self):
             lines = [" | ".join(self._cols)]
             lines += [" | ".join(str(c) for c in r) for r in self._rows]
             return "\n".join(lines)
+
 
 from ..crypto.hybrid_kem import HybridKEM, HybridPublicBundle
 from ..crypto.primitives import (
@@ -66,9 +80,11 @@ BENCHMARK_DIR = os.path.dirname(__file__)
 # Result container
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class BenchResult:
     """Statistical summary of a benchmark run."""
+
     name: str
     iterations: int
     mean_us: float
@@ -80,7 +96,9 @@ class BenchResult:
     notes: str = ""
 
     @classmethod
-    def from_timings(cls, name: str, timings_us: List[float], notes: str = "") -> "BenchResult":
+    def from_timings(
+        cls, name: str, timings_us: List[float], notes: str = ""
+    ) -> "BenchResult":
         return cls(
             name=name,
             iterations=len(timings_us),
@@ -97,6 +115,7 @@ class BenchResult:
 # ---------------------------------------------------------------------------
 # Timer utility
 # ---------------------------------------------------------------------------
+
 
 def time_function(fn: Callable, n: int = 100) -> List[float]:
     """
@@ -118,28 +137,37 @@ def time_function(fn: Callable, n: int = 100) -> List[float]:
 # Individual benchmarks
 # ---------------------------------------------------------------------------
 
+
 def bench_x25519_keygen(n: int = 100) -> BenchResult:
     """Benchmark X25519 ephemeral key generation."""
     from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+
     timings = time_function(X25519PrivateKey.generate, n)
-    return BenchResult.from_timings("X25519 KeyGen", timings, notes="Classical ECDH keygen")
+    return BenchResult.from_timings(
+        "X25519 KeyGen", timings, notes="Classical ECDH keygen"
+    )
 
 
 def bench_x25519_ecdh(n: int = 100) -> BenchResult:
     """Benchmark X25519 ECDH key exchange."""
     from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+
     priv_a = X25519PrivateKey.generate()
     priv_b = X25519PrivateKey.generate()
     pub_b = priv_b.public_key()
     timings = time_function(lambda: priv_a.exchange(pub_b), n)
-    return BenchResult.from_timings("X25519 ECDH", timings, notes="Classical key exchange")
+    return BenchResult.from_timings(
+        "X25519 ECDH", timings, notes="Classical key exchange"
+    )
 
 
 def bench_hybrid_keygen(n: int = 50) -> BenchResult:
     """Benchmark Hybrid KEM (X25519 + Kyber-768) key generation."""
+
     def _gen():
         kem = HybridKEM()
         kem.generate_keypair()
+
     timings = time_function(_gen, n)
     kem = HybridKEM()
     note = "REAL Kyber-768" if kem.using_real_kyber else "Kyber SIMULATION"
@@ -158,7 +186,9 @@ def bench_hybrid_encap_decap(n: int = 50) -> BenchResult:
         kem_a.decapsulate(ct, pub_b.x25519_pub)
 
     timings = time_function(_encap_decap, n)
-    return BenchResult.from_timings("Hybrid Encap+Decap", timings, notes="Full KEM round-trip")
+    return BenchResult.from_timings(
+        "Hybrid Encap+Decap", timings, notes="Full KEM round-trip"
+    )
 
 
 def bench_hkdf(n: int = 200) -> BenchResult:
@@ -166,7 +196,9 @@ def bench_hkdf(n: int = 200) -> BenchResult:
     ikm = secure_random_bytes(64)
     salt = secure_random_bytes(32)
     timings = time_function(lambda: hkdf_derive(ikm, salt=salt), n)
-    return BenchResult.from_timings("HKDF-SHA256", timings, notes="32-byte key derivation")
+    return BenchResult.from_timings(
+        "HKDF-SHA256", timings, notes="32-byte key derivation"
+    )
 
 
 def bench_aesgcm_encrypt(payload_size: int = 1024, n: int = 200) -> BenchResult:
@@ -213,6 +245,7 @@ def bench_full_handshake(n: int = 20) -> BenchResult:
 # ---------------------------------------------------------------------------
 # Results printer
 # ---------------------------------------------------------------------------
+
 
 def print_results_table(results: List[BenchResult]) -> None:
     """Print benchmark results as a Rich formatted table."""
@@ -262,18 +295,29 @@ def plot_results(results: List[BenchResult], path: str) -> None:
         stdevs = [r.stdev_us for r in results]
 
         x = np.arange(len(names))
-        colors = ["#2196F3" if "Classical" not in r.notes and "ECDH" not in r.name
-                  else "#FF9800" for r in results]
+        colors = [
+            (
+                "#2196F3"
+                if "Classical" not in r.notes and "ECDH" not in r.name
+                else "#FF9800"
+            )
+            for r in results
+        ]
 
         fig, ax = plt.subplots(figsize=(14, 6))
         bars = ax.bar(x, means, yerr=stdevs, capsize=4, color=colors, alpha=0.85)
         ax.set_xticks(x)
         ax.set_xticklabels(names, rotation=30, ha="right", fontsize=9)
         ax.set_ylabel("Latency (µs)", fontsize=11)
-        ax.set_title("HyPQ-Mess: Classical vs. Post-Quantum KEM Latency", fontsize=13, fontweight="bold")
+        ax.set_title(
+            "HyPQ-Mess: Classical vs. Post-Quantum KEM Latency",
+            fontsize=13,
+            fontweight="bold",
+        )
 
         # Legend
         from matplotlib.patches import Patch
+
         legend_elements = [
             Patch(facecolor="#2196F3", label="Post-Quantum / Hybrid"),
             Patch(facecolor="#FF9800", label="Classical"),
@@ -291,6 +335,7 @@ def plot_results(results: List[BenchResult], path: str) -> None:
 # ---------------------------------------------------------------------------
 # Main runner
 # ---------------------------------------------------------------------------
+
 
 def run_all_benchmarks(
     iterations: int = 100,
@@ -346,6 +391,7 @@ def run_all_benchmarks(
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser(description="HyPQ-Mess Benchmark Suite")
     parser.add_argument("--iterations", type=int, default=100)
     parser.add_argument("--export", action="store_true")

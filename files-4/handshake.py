@@ -76,12 +76,13 @@ HANDSHAKE_NONCE_BYTES: int = 32
 # Handshake state machine states
 # ---------------------------------------------------------------------------
 
+
 class HandshakeState(enum.Enum):
-    INITIAL           = "INITIAL"
+    INITIAL = "INITIAL"
     CLIENT_HELLO_SENT = "CLIENT_HELLO_SENT"
     SERVER_HELLO_RECV = "SERVER_HELLO_RECV"
-    FINISHED          = "FINISHED"
-    FAILED            = "FAILED"
+    FINISHED = "FINISHED"
+    FAILED = "FAILED"
 
     # Server-side states
     CLIENT_HELLO_RECV = "CLIENT_HELLO_RECV"
@@ -92,6 +93,7 @@ class HandshakeState(enum.Enum):
 # ---------------------------------------------------------------------------
 # Transcript hash (binds key confirmation to full handshake)
 # ---------------------------------------------------------------------------
+
 
 class HandshakeTranscript:
     """
@@ -116,6 +118,7 @@ class HandshakeTranscript:
 # ---------------------------------------------------------------------------
 # Client-side handshake
 # ---------------------------------------------------------------------------
+
 
 class ClientHandshake:
     """
@@ -211,7 +214,9 @@ class ClientHandshake:
 
         # Combined salt: client_nonce || server_nonce (both parties contribute)
         salt = self._nonce_c + srv.nonce
-        self.session_key = self._kem.derive_session_key(encap_result, salt=salt, role="client")
+        self.session_key = self._kem.derive_session_key(
+            encap_result, salt=salt, role="client"
+        )
         base_key = self._kem.derive_base_key(encap_result, salt=salt)
         mac_key = self._kem.get_mac_key(base_key)
 
@@ -219,7 +224,9 @@ class ClientHandshake:
         # Server computed MAC over transcript hash BEFORE encoding ServerHello
         if not verify_hmac(mac_key, transcript_before_srv_hello, srv.key_confirm):
             self.state = HandshakeState.FAILED
-            raise HandshakeError("Server key confirmation MAC verification FAILED — possible MITM.")
+            raise HandshakeError(
+                "Server key confirmation MAC verification FAILED — possible MITM."
+            )
 
         logger.info("[Client] Server key confirmation verified ✓")
 
@@ -250,6 +257,7 @@ class ClientHandshake:
 # ---------------------------------------------------------------------------
 # Server-side handshake
 # ---------------------------------------------------------------------------
+
 
 class ServerHandshake:
     """
@@ -317,7 +325,9 @@ class ServerHandshake:
 
         # --- Derive session key ---
         salt = self._client_nonce + self._nonce_s
-        self.session_key = self._kem.derive_session_key(encap_result, salt=salt, role="server")
+        self.session_key = self._kem.derive_session_key(
+            encap_result, salt=salt, role="server"
+        )
         base_key = self._kem.derive_base_key(encap_result, salt=salt)
         self._mac_key = self._kem.get_mac_key(base_key)
 

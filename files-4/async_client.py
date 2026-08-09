@@ -28,21 +28,34 @@ try:
     from rich.console import Console
     from rich.panel import Panel
     from rich.text import Text
+
     _HAS_RICH = True
 except ImportError:
     _HAS_RICH = False
+
     class Console:
-        def print(self, *args, **kwargs): print(*[str(a) for a in args])
-        def rule(self, *args, **kwargs): print("=" * 60)
+        def print(self, *args, **kwargs):
+            print(*[str(a) for a in args])
+
+        def rule(self, *args, **kwargs):
+            print("=" * 60)
+
     class Panel:
-        def __init__(self, *args, **kwargs): pass
-        def __str__(self): return "HyPQ-Mess"
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __str__(self):
+            return "HyPQ-Mess"
+
 
 from ..crypto.primitives import AESGCMEncryptor, EncryptedMessage, ReplayAttackError
 from ..protocol.handshake import ClientHandshake, HandshakeState
 from ..protocol.message import (
-    MessageCodec, MsgType, EncryptedMsgFrame,
-    frame_message, parse_length_prefix,
+    MessageCodec,
+    MsgType,
+    EncryptedMsgFrame,
+    frame_message,
+    parse_length_prefix,
 )
 
 logger = logging.getLogger(__name__)
@@ -81,15 +94,19 @@ class HyPQClient:
 
     async def connect_and_run(self) -> None:
         """Connect to server, perform handshake, and start interactive loop."""
-        console.print(Panel(
-            f"[bold cyan]HyPQ-Mess Client[/bold cyan]\n"
-            f"Connecting to [yellow]{self.host}:{self.port}[/yellow] as [green]{self.client_id}[/green]\n"
-            f"Hybrid KEM: X25519 + Kyber-768 | AES-256-GCM",
-            title="[bold]Quantum-Safe Secure Messenger[/bold]",
-        ))
+        console.print(
+            Panel(
+                f"[bold cyan]HyPQ-Mess Client[/bold cyan]\n"
+                f"Connecting to [yellow]{self.host}:{self.port}[/yellow] as [green]{self.client_id}[/green]\n"
+                f"Hybrid KEM: X25519 + Kyber-768 | AES-256-GCM",
+                title="[bold]Quantum-Safe Secure Messenger[/bold]",
+            )
+        )
 
         try:
-            self._reader, self._writer = await asyncio.open_connection(self.host, self.port)
+            self._reader, self._writer = await asyncio.open_connection(
+                self.host, self.port
+            )
             logger.info("TCP connected to %s:%s", self.host, self.port)
         except ConnectionRefusedError:
             console.print(f"[red]Connection refused: {self.host}:{self.port}[/red]")
@@ -168,7 +185,11 @@ class HyPQClient:
                 try:
                     plaintext = self._encryptor.decrypt(
                         enc_msg,
-                        aad=frame.sender_id.encode() if frame.sender_id != "SYSTEM" else None,
+                        aad=(
+                            frame.sender_id.encode()
+                            if frame.sender_id != "SYSTEM"
+                            else None
+                        ),
                     )
                     text = plaintext.decode("utf-8", errors="replace")
                     sender = frame.sender_id

@@ -29,17 +29,21 @@ from __future__ import annotations
 
 import enum
 import base64
+
 try:
     import cbor2
+
     _USE_CBOR = True
 except ImportError:
     import json as _json
+
     _USE_CBOR = False
 
 
 class _CborFallback:
     """JSON-based fallback when cbor2 is unavailable.
     Bytes values are base64-encoded since JSON cannot handle raw bytes."""
+
     @staticmethod
     def _encode_val(v):
         if isinstance(v, bytes):
@@ -68,36 +72,38 @@ class _CborFallback:
     def loads(data):
         return _CborFallback._decode_val(_json.loads(data))
 
+
 if not _USE_CBOR:
     cbor2 = _CborFallback()
 from dataclasses import dataclass, asdict
 from typing import Any, Dict, Optional
 
-
 # ---------------------------------------------------------------------------
 # Protocol constants
 # ---------------------------------------------------------------------------
 PROTOCOL_VERSION: int = 1
-MAX_MESSAGE_BYTES: int = 65_536   # 64 KiB hard limit per message
+MAX_MESSAGE_BYTES: int = 65_536  # 64 KiB hard limit per message
 
 
 # ---------------------------------------------------------------------------
 # Message type registry
 # ---------------------------------------------------------------------------
 
+
 class MsgType(enum.IntEnum):
-    CLIENT_HELLO  = 0x01
-    SERVER_HELLO  = 0x02
+    CLIENT_HELLO = 0x01
+    SERVER_HELLO = 0x02
     CLIENT_FINISH = 0x03
     ENCRYPTED_MSG = 0x10
-    PING          = 0x20
-    PONG          = 0x21
-    ERROR         = 0xFF
+    PING = 0x20
+    PONG = 0x21
+    ERROR = 0xFF
 
 
 # ---------------------------------------------------------------------------
 # Message dataclasses
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ClientHelloMsg:
@@ -110,6 +116,7 @@ class ClientHelloMsg:
         nonce      : 32-byte random client nonce (for salt in HKDF).
         client_id  : Optional client identifier string.
     """
+
     x25519_pub: bytes
     kyber_pub: bytes
     nonce: bytes
@@ -129,6 +136,7 @@ class ServerHelloMsg:
         key_confirm   : HMAC-SHA256 MAC for key confirmation (32 bytes).
         server_id     : Server identifier.
     """
+
     x25519_pub: bytes
     kyber_pub: bytes
     kyber_ct: bytes
@@ -149,6 +157,7 @@ class ClientFinishMsg:
         key_confirm  : Client's HMAC-SHA256 key confirmation (32 bytes).
         client_id    : Client identifier.
     """
+
     key_confirm: bytes
     client_id: str = "anonymous"
 
@@ -165,6 +174,7 @@ class EncryptedMsgFrame:
         timestamp  : Unix microsecond timestamp (anti-replay).
         sender_id  : Plaintext sender identifier (authenticated via GCM AAD).
     """
+
     nonce: bytes
     ciphertext: bytes
     sequence: int
@@ -175,6 +185,7 @@ class EncryptedMsgFrame:
 @dataclass
 class ErrorMsg:
     """Protocol error message."""
+
     code: int
     description: str
 
@@ -182,6 +193,7 @@ class ErrorMsg:
 # ---------------------------------------------------------------------------
 # Serializer / Deserializer
 # ---------------------------------------------------------------------------
+
 
 class MessageCodec:
     """
@@ -284,6 +296,7 @@ class MessageCodec:
 # Length-prefixed framing for TCP streams
 # ---------------------------------------------------------------------------
 
+
 def frame_message(data: bytes) -> bytes:
     """
     Prepend a 4-byte big-endian length prefix for TCP stream framing.
@@ -298,6 +311,7 @@ def frame_message(data: bytes) -> bytes:
         4-byte length prefix + message bytes.
     """
     import struct
+
     return struct.pack(">I", len(data)) + data
 
 
@@ -315,6 +329,7 @@ def parse_length_prefix(header: bytes) -> int:
         ValueError: If header is not exactly 4 bytes.
     """
     import struct
+
     if len(header) != 4:
         raise ValueError(f"Expected 4-byte header, got {len(header)}.")
     (length,) = struct.unpack(">I", header)
@@ -326,6 +341,7 @@ def parse_length_prefix(header: bytes) -> int:
 # ---------------------------------------------------------------------------
 # Custom Exceptions
 # ---------------------------------------------------------------------------
+
 
 class VersionMismatchError(Exception):
     """Raised when protocol version does not match."""

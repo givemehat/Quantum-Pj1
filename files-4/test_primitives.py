@@ -30,12 +30,14 @@ import struct
 # Crypto primitives tests
 # ---------------------------------------------------------------------------
 
+
 class TestHKDF:
     """Tests for HKDF-SHA256 key derivation."""
 
     def test_deterministic_derivation(self):
         """Same inputs produce same output."""
         from hy_pq_mess.crypto.primitives import hkdf_derive
+
         ikm = b"test_input_keying_material"
         salt = b"test_salt"
         k1 = hkdf_derive(ikm, salt=salt)
@@ -45,6 +47,7 @@ class TestHKDF:
     def test_output_length(self):
         """Output length matches requested length."""
         from hy_pq_mess.crypto.primitives import hkdf_derive
+
         for length in [16, 32, 64]:
             key = hkdf_derive(b"ikm", length=length)
             assert len(key) == length
@@ -52,6 +55,7 @@ class TestHKDF:
     def test_different_salts_produce_different_keys(self):
         """Different salts must yield distinct keys."""
         from hy_pq_mess.crypto.primitives import hkdf_derive
+
         ikm = b"same_ikm"
         k1 = hkdf_derive(ikm, salt=b"salt1")
         k2 = hkdf_derive(ikm, salt=b"salt2")
@@ -60,6 +64,7 @@ class TestHKDF:
     def test_domain_separation(self):
         """Different info labels produce different keys."""
         from hy_pq_mess.crypto.primitives import hkdf_derive
+
         ikm = b"same_ikm"
         k1 = hkdf_derive(ikm, info=b"context-a")
         k2 = hkdf_derive(ikm, info=b"context-b")
@@ -67,7 +72,11 @@ class TestHKDF:
 
     def test_session_key_derivation(self):
         """Session key derivation produces 32-byte key."""
-        from hy_pq_mess.crypto.primitives import hkdf_derive_session_key, secure_random_bytes
+        from hy_pq_mess.crypto.primitives import (
+            hkdf_derive_session_key,
+            secure_random_bytes,
+        )
+
         x25519 = secure_random_bytes(32)
         kyber = secure_random_bytes(32)
         salt = secure_random_bytes(32)
@@ -76,7 +85,11 @@ class TestHKDF:
 
     def test_client_server_roles_differ(self):
         """Client and server derive different session keys (directional)."""
-        from hy_pq_mess.crypto.primitives import hkdf_derive_session_key, secure_random_bytes
+        from hy_pq_mess.crypto.primitives import (
+            hkdf_derive_session_key,
+            secure_random_bytes,
+        )
+
         x25519 = secure_random_bytes(32)
         kyber = secure_random_bytes(32)
         salt = secure_random_bytes(32)
@@ -90,11 +103,13 @@ class TestAESGCM:
 
     def _make_encryptor(self) -> object:
         from hy_pq_mess.crypto.primitives import AESGCMEncryptor, secure_random_bytes
+
         return AESGCMEncryptor(secure_random_bytes(32))
 
     def test_encrypt_decrypt_roundtrip(self):
         """Plaintext recoverable after encrypt → decrypt."""
         from hy_pq_mess.crypto.primitives import AESGCMEncryptor, secure_random_bytes
+
         key = secure_random_bytes(32)
         enc = AESGCMEncryptor(key)
         plaintext = b"Hello, quantum-safe world!"
@@ -105,6 +120,7 @@ class TestAESGCM:
     def test_wrong_key_fails(self):
         """Decryption with wrong key raises exception."""
         from hy_pq_mess.crypto.primitives import AESGCMEncryptor, secure_random_bytes
+
         enc_a = AESGCMEncryptor(secure_random_bytes(32))
         enc_b = AESGCMEncryptor(secure_random_bytes(32))
         msg = enc_a.encrypt(b"secret message")
@@ -113,7 +129,12 @@ class TestAESGCM:
 
     def test_tampered_ciphertext_rejected(self):
         """Bit flip in ciphertext fails authentication."""
-        from hy_pq_mess.crypto.primitives import AESGCMEncryptor, EncryptedMessage, secure_random_bytes
+        from hy_pq_mess.crypto.primitives import (
+            AESGCMEncryptor,
+            EncryptedMessage,
+            secure_random_bytes,
+        )
+
         key = secure_random_bytes(32)
         enc = AESGCMEncryptor(key)
         enc2 = AESGCMEncryptor(key)
@@ -130,7 +151,13 @@ class TestAESGCM:
 
     def test_replay_attack_detected(self):
         """Replayed sequence number is rejected."""
-        from hy_pq_mess.crypto.primitives import AESGCMEncryptor, EncryptedMessage, secure_random_bytes, ReplayAttackError
+        from hy_pq_mess.crypto.primitives import (
+            AESGCMEncryptor,
+            EncryptedMessage,
+            secure_random_bytes,
+            ReplayAttackError,
+        )
+
         key = secure_random_bytes(32)
         enc_tx = AESGCMEncryptor(key)
         enc_rx = AESGCMEncryptor(key)
@@ -149,6 +176,7 @@ class TestAESGCM:
     def test_sequence_monotonic(self):
         """Sequence numbers are monotonically increasing."""
         from hy_pq_mess.crypto.primitives import AESGCMEncryptor, secure_random_bytes
+
         key = secure_random_bytes(32)
         enc = AESGCMEncryptor(key)
         seqs = [enc.encrypt(f"msg{i}".encode()).sequence for i in range(5)]
@@ -157,12 +185,14 @@ class TestAESGCM:
     def test_invalid_key_length(self):
         """Non-32-byte key raises ValueError."""
         from hy_pq_mess.crypto.primitives import AESGCMEncryptor
+
         with pytest.raises(ValueError):
             AESGCMEncryptor(b"too_short")
 
     def test_large_payload(self):
         """1 MB payload encrypts/decrypts correctly."""
         from hy_pq_mess.crypto.primitives import AESGCMEncryptor, secure_random_bytes
+
         key = secure_random_bytes(32)
         enc = AESGCMEncryptor(key)
         plaintext = secure_random_bytes(1024 * 1024)
@@ -173,6 +203,7 @@ class TestAESGCM:
     def test_aad_binding(self):
         """Mismatched AAD on decrypt raises exception."""
         from hy_pq_mess.crypto.primitives import AESGCMEncryptor, secure_random_bytes
+
         key = secure_random_bytes(32)
         enc_tx = AESGCMEncryptor(key)
         enc_rx = AESGCMEncryptor(key)
@@ -186,7 +217,12 @@ class TestHMACConfirm:
 
     def test_valid_hmac_verified(self):
         """HMAC verification passes for correct key and data."""
-        from hy_pq_mess.crypto.primitives import compute_hmac, verify_hmac, secure_random_bytes
+        from hy_pq_mess.crypto.primitives import (
+            compute_hmac,
+            verify_hmac,
+            secure_random_bytes,
+        )
+
         key = secure_random_bytes(32)
         data = b"handshake transcript"
         tag = compute_hmac(key, data)
@@ -194,14 +230,24 @@ class TestHMACConfirm:
 
     def test_tampered_data_rejected(self):
         """HMAC fails if data is modified."""
-        from hy_pq_mess.crypto.primitives import compute_hmac, verify_hmac, secure_random_bytes
+        from hy_pq_mess.crypto.primitives import (
+            compute_hmac,
+            verify_hmac,
+            secure_random_bytes,
+        )
+
         key = secure_random_bytes(32)
         tag = compute_hmac(key, b"original")
         assert verify_hmac(key, b"tampered", tag) is False
 
     def test_wrong_key_rejected(self):
         """HMAC fails with wrong key."""
-        from hy_pq_mess.crypto.primitives import compute_hmac, verify_hmac, secure_random_bytes
+        from hy_pq_mess.crypto.primitives import (
+            compute_hmac,
+            verify_hmac,
+            secure_random_bytes,
+        )
+
         k1, k2 = secure_random_bytes(32), secure_random_bytes(32)
         tag = compute_hmac(k1, b"data")
         assert verify_hmac(k2, b"data", tag) is False
@@ -211,12 +257,14 @@ class TestHMACConfirm:
 # Hybrid KEM tests
 # ---------------------------------------------------------------------------
 
+
 class TestHybridKEM:
     """Tests for HybridKEM key generation and encapsulation."""
 
     def test_keypair_generation(self):
         """Keypair generation produces correct byte lengths."""
         from hy_pq_mess.crypto.hybrid_kem import HybridKEM, KYBER_PK_BYTES
+
         kem = HybridKEM()
         bundle = kem.generate_keypair()
         assert len(bundle.x25519_pub) == 32
@@ -243,8 +291,12 @@ class TestHybridKEM:
 
         # Both sides derive session keys — note: order of x25519 shared secrets
         # differs by design (directional keys), so we just verify both succeed
-        key_server = kem_server.derive_session_key(encap_server, salt=salt, role="server")
-        key_client = kem_client.derive_session_key(encap_client, salt=salt, role="client")
+        key_server = kem_server.derive_session_key(
+            encap_server, salt=salt, role="server"
+        )
+        key_client = kem_client.derive_session_key(
+            encap_client, salt=salt, role="client"
+        )
 
         assert len(key_server) == 32
         assert len(key_client) == 32
@@ -253,6 +305,7 @@ class TestHybridKEM:
         """Encapsulation without key generation raises RuntimeError."""
         from hy_pq_mess.crypto.hybrid_kem import HybridKEM, HybridPublicBundle
         from hy_pq_mess.crypto.primitives import secure_random_bytes
+
         kem = HybridKEM()
         bundle = HybridPublicBundle(
             x25519_pub=secure_random_bytes(32),
@@ -266,6 +319,7 @@ class TestHybridKEM:
 # Protocol message tests
 # ---------------------------------------------------------------------------
 
+
 class TestMessageCodec:
     """Tests for CBOR message serialization."""
 
@@ -273,6 +327,7 @@ class TestMessageCodec:
         """ClientHello serializes and deserializes correctly."""
         from hy_pq_mess.protocol.message import MessageCodec, MsgType, ClientHelloMsg
         from hy_pq_mess.crypto.primitives import secure_random_bytes
+
         msg = ClientHelloMsg(
             x25519_pub=secure_random_bytes(32),
             kyber_pub=secure_random_bytes(1184),
@@ -289,6 +344,7 @@ class TestMessageCodec:
         """Wrong protocol version raises VersionMismatchError."""
         import cbor2
         from hy_pq_mess.protocol.message import MessageCodec, VersionMismatchError
+
         bad = cbor2.dumps({"t": 1, "v": 99, "p": {}})
         with pytest.raises(VersionMismatchError):
             MessageCodec.decode(bad)
@@ -297,6 +353,7 @@ class TestMessageCodec:
         """Unknown message type raises ValueError."""
         import cbor2
         from hy_pq_mess.protocol.message import MessageCodec, PROTOCOL_VERSION
+
         bad = cbor2.dumps({"t": 0xEE, "v": PROTOCOL_VERSION, "p": {}})
         with pytest.raises(ValueError):
             MessageCodec.decode(bad)
@@ -304,6 +361,7 @@ class TestMessageCodec:
     def test_frame_encode_decode(self):
         """Length-prefixed framing round-trip."""
         from hy_pq_mess.protocol.message import frame_message, parse_length_prefix
+
         data = b"hello world"
         framed = frame_message(data)
         assert len(framed) == 4 + len(data)
@@ -316,12 +374,17 @@ class TestMessageCodec:
 # Full handshake integration test
 # ---------------------------------------------------------------------------
 
+
 class TestHandshake:
     """Integration tests for the full hybrid handshake protocol."""
 
     def test_full_handshake_success(self):
         """Complete 3-message handshake succeeds and establishes session keys."""
-        from hy_pq_mess.protocol.handshake import ClientHandshake, ServerHandshake, HandshakeState
+        from hy_pq_mess.protocol.handshake import (
+            ClientHandshake,
+            ServerHandshake,
+            HandshakeState,
+        )
 
         cli = ClientHandshake(client_id="alice")
         srv = ServerHandshake(server_id="test-server")
@@ -374,7 +437,9 @@ class TestHandshake:
         envelope = cbor2.loads(srv_hello_raw)
         payload = envelope["p"]
         original_confirm = bytes(payload["key_confirm"])
-        payload["key_confirm"] = bytes([original_confirm[0] ^ 0xFF]) + original_confirm[1:]
+        payload["key_confirm"] = (
+            bytes([original_confirm[0] ^ 0xFF]) + original_confirm[1:]
+        )
         tampered_raw = cbor2.dumps(envelope)
 
         with pytest.raises(HandshakeError):

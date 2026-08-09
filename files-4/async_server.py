@@ -29,19 +29,23 @@ from typing import Dict, Optional
 from ..crypto.primitives import AESGCMEncryptor, EncryptedMessage
 from ..protocol.handshake import ServerHandshake, HandshakeState
 from ..protocol.message import (
-    MessageCodec, MsgType, EncryptedMsgFrame,
-    frame_message, parse_length_prefix,
+    MessageCodec,
+    MsgType,
+    EncryptedMsgFrame,
+    frame_message,
+    parse_length_prefix,
 )
 
 logger = logging.getLogger(__name__)
 
-HEADER_BYTES: int = 4      # 4-byte length prefix
+HEADER_BYTES: int = 4  # 4-byte length prefix
 READ_TIMEOUT: float = 30.0  # seconds before idle disconnect
 
 
 # ---------------------------------------------------------------------------
 # Per-client session state
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ClientSession:
@@ -55,6 +59,7 @@ class ClientSession:
         connected_at: Unix timestamp of connection establishment.
         messages_sent: Count of application messages sent to this client.
     """
+
     client_id: str
     encryptor: AESGCMEncryptor
     writer: asyncio.StreamWriter
@@ -66,6 +71,7 @@ class ClientSession:
 # ---------------------------------------------------------------------------
 # HyPQ-Mess Async Server
 # ---------------------------------------------------------------------------
+
 
 class HyPQServer:
     """
@@ -152,7 +158,9 @@ class HyPQServer:
 
             # Extract client_id from finish message (decoded in handshake)
             _, finish_payload = MessageCodec.decode(client_finish_raw)
-            client_id = finish_payload.get("client_id", f"client_{self._total_connections}")
+            client_id = finish_payload.get(
+                "client_id", f"client_{self._total_connections}"
+            )
 
             # --- Register session ---
             session = ClientSession(
@@ -166,8 +174,12 @@ class HyPQServer:
                     session.client_id = client_id
                 self._sessions[client_id] = session
 
-            logger.info("[Server] Client '%s' authenticated | Session established", client_id)
-            await self._broadcast_system(f"'{client_id}' joined the channel.", exclude=client_id)
+            logger.info(
+                "[Server] Client '%s' authenticated | Session established", client_id
+            )
+            await self._broadcast_system(
+                f"'{client_id}' joined the channel.", exclude=client_id
+            )
 
             # --- Message relay loop ---
             await self._relay_loop(reader, session)
@@ -177,12 +189,17 @@ class HyPQServer:
         except ConnectionError as exc:
             logger.warning("[Server] Connection error from %s: %s", peer, exc)
         except Exception as exc:
-            logger.error("[Server] Unexpected error from %s: %s", peer, exc, exc_info=True)
+            logger.error(
+                "[Server] Unexpected error from %s: %s", peer, exc, exc_info=True
+            )
         finally:
             if session:
                 async with self._lock:
                     self._sessions.pop(session.client_id, None)
-                logger.info("[Server] Client '%s' disconnected", session.client_id if session else peer)
+                logger.info(
+                    "[Server] Client '%s' disconnected",
+                    session.client_id if session else peer,
+                )
                 await self._broadcast_system(
                     f"'{session.client_id}' left the channel.",
                     exclude=session.client_id if session else "",
@@ -215,7 +232,9 @@ class HyPQServer:
                     self._read_frame(reader), timeout=READ_TIMEOUT
                 )
             except asyncio.TimeoutError:
-                logger.info("[Server] Client '%s' idle timeout.", sender_session.client_id)
+                logger.info(
+                    "[Server] Client '%s' idle timeout.", sender_session.client_id
+                )
                 break
             except (asyncio.IncompleteReadError, ConnectionResetError):
                 break
@@ -236,19 +255,23 @@ class HyPQServer:
                 except Exception as exc:
                     logger.warning(
                         "[Server] Decryption failed from '%s': %s",
-                        sender_session.client_id, exc
+                        sender_session.client_id,
+                        exc,
                     )
                     continue
 
                 logger.debug(
                     "[Server] Relaying %d bytes from '%s' to %d peers",
-                    len(plaintext), sender_session.client_id, len(self._sessions) - 1
+                    len(plaintext),
+                    sender_session.client_id,
+                    len(self._sessions) - 1,
                 )
 
                 # Relay to all other connected clients
                 async with self._lock:
                     recipients = [
-                        s for cid, s in self._sessions.items()
+                        s
+                        for cid, s in self._sessions.items()
                         if cid != sender_session.client_id
                     ]
 
@@ -271,11 +294,14 @@ class HyPQServer:
                     except Exception as exc:
                         logger.warning(
                             "[Server] Failed to relay to '%s': %s",
-                            recipient.client_id, exc
+                            recipient.client_id,
+                            exc,
                         )
 
             elif msg_type == MsgType.PING:
-                pong = MessageCodec.encode(MsgType.PONG, {"ts": int(time.time() * 1000)})
+                pong = MessageCodec.encode(
+                    MsgType.PONG, {"ts": int(time.time() * 1000)}
+                )
                 await self._write_frame(sender_session.writer, pong)
 
     async def _broadcast_system(self, message: str, exclude: str = "") -> None:

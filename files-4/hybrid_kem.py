@@ -63,6 +63,7 @@ _oqs: Optional[object] = None
 
 try:
     import oqs  # type: ignore[import]
+
     _OQS_AVAILABLE = True
     _oqs = oqs
     logger.info("liboqs detected: using real Kyber-768 (ML-KEM-768).")
@@ -76,22 +77,24 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Kyber-768 parameters (NIST FIPS 203)
 # ---------------------------------------------------------------------------
-KYBER_ALG: str = "Kyber768"          # liboqs algorithm name
-KYBER_PK_BYTES: int = 1184           # Kyber-768 public key size
-KYBER_SK_BYTES: int = 2400           # Kyber-768 secret key size
-KYBER_CT_BYTES: int = 1088           # Kyber-768 ciphertext size
-KYBER_SS_BYTES: int = 32             # Kyber-768 shared secret size
+KYBER_ALG: str = "Kyber768"  # liboqs algorithm name
+KYBER_PK_BYTES: int = 1184  # Kyber-768 public key size
+KYBER_SK_BYTES: int = 2400  # Kyber-768 secret key size
+KYBER_CT_BYTES: int = 1088  # Kyber-768 ciphertext size
+KYBER_SS_BYTES: int = 32  # Kyber-768 shared secret size
 
 
 # ---------------------------------------------------------------------------
 # Data containers
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class KyberKeyPair:
     """Kyber-768 key pair (ephemeral, per-session)."""
-    public_key: bytes    # 1184-byte public key
-    secret_key: bytes    # 2400-byte secret key (zeroize on scope exit in prod)
+
+    public_key: bytes  # 1184-byte public key
+    secret_key: bytes  # 2400-byte secret key (zeroize on scope exit in prod)
 
 
 @dataclass
@@ -104,8 +107,9 @@ class HybridPublicBundle:
 
     Wire format: serialized via CBOR in protocol/message.py.
     """
-    x25519_pub: bytes    # 32-byte X25519 compressed public key
-    kyber_pub: bytes     # 1184-byte Kyber-768 public key
+
+    x25519_pub: bytes  # 32-byte X25519 compressed public key
+    kyber_pub: bytes  # 1184-byte Kyber-768 public key
 
 
 @dataclass
@@ -115,14 +119,16 @@ class HybridEncapsulation:
 
     Contains ciphertexts and the derived shared secrets (never transmitted).
     """
-    kyber_ciphertext: bytes    # 1088-byte Kyber-768 encapsulation ciphertext
-    kyber_shared: bytes        # 32-byte Kyber shared secret (local only)
-    x25519_shared: bytes       # 32-byte X25519 shared secret (local only)
+
+    kyber_ciphertext: bytes  # 1088-byte Kyber-768 encapsulation ciphertext
+    kyber_shared: bytes  # 32-byte Kyber shared secret (local only)
+    x25519_shared: bytes  # 32-byte X25519 shared secret (local only)
 
 
 # ---------------------------------------------------------------------------
 # Pure-Python Kyber Simulation (fallback only)
 # ---------------------------------------------------------------------------
+
 
 class _KyberSimulator:
     """
@@ -139,27 +145,31 @@ class _KyberSimulator:
         ss   = HMAC(seed, ct)[:KYBER_SS_BYTES]  (deterministic shared secret)
     Both encapsulate and decapsulate recover the same ss from (seed, ct).
     """
+
     import hashlib as _hashlib
     import hmac as _hmac
 
     @staticmethod
     def generate_keypair() -> Tuple[bytes, bytes]:
         """Simulate Kyber-768 key generation."""
-        seed = secure_random_bytes(32)                          # true random seed
+        seed = secure_random_bytes(32)  # true random seed
         pk = (seed * ((KYBER_PK_BYTES // 32) + 1))[:KYBER_PK_BYTES]
-        sk = seed + (b"\x00" * (KYBER_SK_BYTES - 32))          # seed is first 32 bytes
+        sk = seed + (b"\x00" * (KYBER_SK_BYTES - 32))  # seed is first 32 bytes
         return pk, sk
 
     @staticmethod
     def encapsulate(public_key: bytes) -> Tuple[bytes, bytes]:
         """Simulate Kyber-768 encapsulation (deterministic from pk)."""
         import hmac, hashlib
+
         # ct = HMAC-SHA256(key=pk[:32], data="encap")[:KYBER_CT_BYTES] (padded)
         seed_pk = public_key[:32]
         ct_raw = hmac.new(seed_pk, b"kyber_sim_ct", hashlib.sha256).digest()
         ciphertext = (ct_raw * ((KYBER_CT_BYTES // 32) + 1))[:KYBER_CT_BYTES]
         # ss = HMAC-SHA256(key=pk[:32], data=ct[:32])
-        shared_secret = hmac.new(seed_pk, ciphertext[:32], hashlib.sha256).digest()[:KYBER_SS_BYTES]
+        shared_secret = hmac.new(seed_pk, ciphertext[:32], hashlib.sha256).digest()[
+            :KYBER_SS_BYTES
+        ]
         return ciphertext, shared_secret
 
     @staticmethod
@@ -170,6 +180,7 @@ class _KyberSimulator:
         the seed embedded in the secret key.
         """
         import hmac, hashlib
+
         # pk[:32] = seed stored in sk[:32]
         seed_pk = secret_key[:32]
         # Reconstruct expected ct from seed
@@ -177,13 +188,16 @@ class _KyberSimulator:
         expected_ct = (ct_raw * ((KYBER_CT_BYTES // 32) + 1))[:KYBER_CT_BYTES]
         # ss from the actual received ciphertext (in real Kyber this verifies ct)
         # For simulation: use actual ciphertext to be consistent with encap
-        shared_secret = hmac.new(seed_pk, ciphertext[:32], hashlib.sha256).digest()[:KYBER_SS_BYTES]
+        shared_secret = hmac.new(seed_pk, ciphertext[:32], hashlib.sha256).digest()[
+            :KYBER_SS_BYTES
+        ]
         return shared_secret
 
 
 # ---------------------------------------------------------------------------
 # HybridKEM: Core class
 # ---------------------------------------------------------------------------
+
 
 class HybridKEM:
     """
@@ -292,7 +306,9 @@ class HybridKEM:
         peer_x25519_pub = X25519PublicKey.from_public_bytes(peer_pub_bundle.x25519_pub)
         x25519_ss = self._x25519_priv.exchange(peer_x25519_pub)
 
-        logger.debug("Encapsulated: Kyber-ct=%d B, X25519-ss=%d B", len(kyber_ct), len(x25519_ss))
+        logger.debug(
+            "Encapsulated: Kyber-ct=%d B, X25519-ss=%d B", len(kyber_ct), len(x25519_ss)
+        )
 
         return kyber_ct, HybridEncapsulation(
             kyber_ciphertext=kyber_ct,
@@ -333,7 +349,9 @@ class HybridKEM:
         peer_pub = X25519PublicKey.from_public_bytes(peer_x25519_pub)
         x25519_ss = self._x25519_priv.exchange(peer_pub)
 
-        logger.debug("Decapsulated: Kyber-ss=%d B, X25519-ss=%d B", len(kyber_ss), len(x25519_ss))
+        logger.debug(
+            "Decapsulated: Kyber-ss=%d B, X25519-ss=%d B", len(kyber_ss), len(x25519_ss)
+        )
 
         return HybridEncapsulation(
             kyber_ciphertext=kyber_ciphertext,
@@ -371,7 +389,9 @@ class HybridKEM:
             salt=salt,
             role=role,
         )
-        logger.debug("Derived session key for role='%s': %d bytes", role, len(session_key))
+        logger.debug(
+            "Derived session key for role='%s': %d bytes", role, len(session_key)
+        )
         return session_key
 
     def derive_base_key(
@@ -393,6 +413,7 @@ class HybridKEM:
             32-byte shared base key.
         """
         from .primitives import hkdf_derive_base_key
+
         return hkdf_derive_base_key(
             x25519_secret=encapsulation.x25519_shared,
             kyber_shared=encapsulation.kyber_shared,
